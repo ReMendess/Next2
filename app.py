@@ -86,7 +86,6 @@ def gerar_audio_tts(texto):
         return None
 
 def gerar_pdf_report(resumo, chart_bytes):
-    # usa FPDF para montar PDF e retorna bytes
     pdf = FPDF(orientation='P', unit='pt', format='A4')
     pdf.set_auto_page_break(auto=True, margin=40)
     pdf.add_page()
@@ -101,6 +100,69 @@ def gerar_pdf_report(resumo, chart_bytes):
     pdf.cell(0, 14, f"Data/Hora: {now}", ln=True)
     pdf.cell(0, 14, f"Máquina: {MACHINE}", ln=True)
     pdf.ln(6)
+
+    pdf.set_fill_color(18,24,29)
+    pdf.set_draw_color(80,80,80)
+    pdf.rect(36, pdf.get_y(), 520, 72, style='F')
+    pdf.set_xy(40, pdf.get_y() + 6)
+    pdf.set_font("Helvetica", size=10)
+    pdf.multi_cell(520, 14, f"Detalhes da máquina: Máquina com mais de 15 anos de uso. Última manutenção: {LAST_MAINT_DATE}. {LAST_MAINT_DESC}")
+
+    pdf.ln(6)
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.cell(0, 14, f"Defeito: {DEFECT}", ln=True)
+    pdf.set_font("Helvetica", size=10)
+    pdf.cell(0, 12, f"Autorizado para manutenção: {AUTHORIZED}", ln=True)
+    pdf.ln(6)
+
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.cell(0, 14, "Passos para verificação e reparo:", ln=True)
+    pdf.set_font("Helvetica", size=10)
+    passos = [
+        "1. Garantir segurança: isolar e sinalizar a área.",
+        "2. Despressurizar o compartimento e desligar a máquina.",
+        "3. Remover tampa lateral e inspecionar juntas e válvulas.",
+        "4. Substituir anéis de vedação e a válvula defeituosa, se identificada.",
+        "5. Reapertar conexões, recolocar tampa e realizar teste com baixa pressão.",
+        "6. Registrar resultado e reabrir produção quando seguro."
+    ]
+    for p in passos:
+        pdf.multi_cell(0, 12, p)
+    pdf.ln(6)
+
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.cell(0, 14, "IPIs necessários / Peças previstas:", ln=True)
+    pdf.set_font("Helvetica", size=10)
+    for p in PARTS:
+        pdf.cell(0, 12, f"- {p['part']} — Qtd: {p['qty']}", ln=True)
+
+    pdf.ln(6)
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.cell(0, 14, f"Ticket de suporte: #{TICKET}", ln=True)
+    pdf.cell(0, 14, f"Técnicos responsáveis: {', '.join(TECHS)}", ln=True)
+
+    # ---------- página do gráfico ----------
+    pdf.add_page()
+    pdf.set_font("Helvetica", "B", 12)
+    pdf.set_text_color(6,182,212)
+    pdf.cell(0, 16, "Gráfico de Ocorrências (últimas 48h)", ln=True)
+
+    # salvar o gráfico temporariamente
+    temp_chart_path = "temp_chart.png"
+    with open(temp_chart_path, "wb") as f:
+        f.write(chart_bytes.getvalue())
+
+    # inserir imagem
+    pdf.image(temp_chart_path, x=36, y=60, w=520)
+
+    # remover o arquivo temporário
+    os.remove(temp_chart_path)
+
+    # retornar bytes do PDF
+    output = io.BytesIO()
+    pdf.output(output)
+    output.seek(0)
+    return output
 
     # detalhes da máquina (caixa)
     pdf.set_fill_color(18,24,29)
