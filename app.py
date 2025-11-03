@@ -88,29 +88,6 @@ def gerar_audio_tts(texto):
 
 from fpdf import FPDF
 
-Parece que você tem um problema com a função gerar_pdf_report ao tentar passar o objeto BytesIO do gráfico (chart_bytes) diretamente para pdf.image(), especialmente quando está usando o decorador @st.cache_data.
-
-O fpdf espera um caminho de arquivo (string) ou uma URL como primeiro argumento da função pdf.image(). Embora ele suporte objetos BytesIO, a forma como ele tenta processar strings internamente (name.startswith("http://")) está causando o erro porque o BytesIO não tem o método startswith.
-
-A forma correta de usar um objeto BytesIO (como chart_bytes) com fpdf.image() é passando o objeto como argumento name (o primeiro) e definindo type como PNG (que você já fez) e opcionalmente o argumento link como False.
-
-No entanto, o problema principal parece ser a forma como o fpdf lida com o tipo de dado do primeiro argumento.
-
-Ajuste principal é garantir que o fpdf reconheça o chart_bytes como um buffer de imagem e não como um caminho de arquivo/URL.
-
-🛠️ Código Corrigido
-Eu limpei e corrigi a função gerar_pdf_report para remover as duplicações de código (que estavam no final e causavam confusão) e, o mais importante, forcei o uso do BytesIO na chamada pdf.image() de forma que o fpdf consiga processá-lo corretamente.
-
-1. Correção da Função gerar_pdf_report (Linhas 115-226)
-O corpo da função foi limpo para remover a duplicação. A linha crucial corrigida é onde a imagem é inserida.
-
-Python
-
-# app.py
-
-# ... (Mantenha as importações e constantes)
-
-from fpdf import FPDF # <- OK
 
 def gerar_pdf_report(resumo, chart_bytes):
     # Inicializa FPDF
