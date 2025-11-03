@@ -1,6 +1,7 @@
 streamlit
-numpy
-pandas
-matplotlib
-datetime
 openai
+matplotlib
+pandas
+numpy
+gTTS
+fpdf
