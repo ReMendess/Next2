@@ -13,7 +13,7 @@ import base64
 
 # ---------- CONFIGURAÇÃO ----------
 # 1. Ajuste de layout e FORÇAR TEMA ESCURO (dark)
-st.set_page_config(page_title="EVA — Assistente de Suporte (Vazamentos)", layout="wide", initial_sidebar_state="collapsed", theme="dark")
+st.set_page_config(page_title="EVA — Assistente de Suporte (Vazamentos)", layout="wide", initial_sidebar_state="collapsed")
 
 # OpenAI key: prefer env var, fallback para secrets
 OPENAI_KEY = os.getenv("OPENAI_API_KEY") or st.secrets.get("OPENAI_API_KEY") if "OPENAI_API_KEY" in st.secrets else None
