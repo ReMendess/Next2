@@ -358,7 +358,6 @@ with left:
     st.image(chart_buf, use_column_width=True) 
     st.markdown(f"**Resumo:** Média = {resumo['media']} | Pico = {resumo['max']} às {resumo['hora_pico']} | Total = {resumo['total']}")
     
-    # 1. Gerar o PDF no início (ou usar cache)
     @st.cache_data
     def get_pdf_buffer(resumo, chart_buf_initial):
         # Clonar o buffer para evitar que o fpdf/Streamlit o consuma 
@@ -375,10 +374,10 @@ with left:
     # 2. Renderizar botões (o download_button fica visível sempre, usando o buffer gerado)
     col_a, col_b, col_c = st.columns([1,1,1])
     # ... (Botões de Ouvir e Baixar PDF/PNG permanecem como na sua última versão)
-    with col_a:
+with col_a:
         # ... (Botão Ouvir)
     
-    with col_b:
+with col_b:
         # st.download_button aceita um BytesIO como 'data'
         st.download_button(
             "⬇️ Baixar Relatório (PDF)", 
@@ -387,7 +386,7 @@ with left:
             mime="application/pdf"
         )
 
-    with col_c:
+with col_c:
         if st.button("Exportar gráfico (PNG)"):
             # O gráfico deve ser lido do início
             chart_buf.seek(0)
