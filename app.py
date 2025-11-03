@@ -88,6 +88,30 @@ def gerar_audio_tts(texto):
 
 from fpdf import FPDF
 
+Parece que você tem um problema com a função gerar_pdf_report ao tentar passar o objeto BytesIO do gráfico (chart_bytes) diretamente para pdf.image(), especialmente quando está usando o decorador @st.cache_data.
+
+O fpdf espera um caminho de arquivo (string) ou uma URL como primeiro argumento da função pdf.image(). Embora ele suporte objetos BytesIO, a forma como ele tenta processar strings internamente (name.startswith("http://")) está causando o erro porque o BytesIO não tem o método startswith.
+
+A forma correta de usar um objeto BytesIO (como chart_bytes) com fpdf.image() é passando o objeto como argumento name (o primeiro) e definindo type como PNG (que você já fez) e opcionalmente o argumento link como False.
+
+No entanto, o problema principal parece ser a forma como o fpdf lida com o tipo de dado do primeiro argumento.
+
+Ajuste principal é garantir que o fpdf reconheça o chart_bytes como um buffer de imagem e não como um caminho de arquivo/URL.
+
+🛠️ Código Corrigido
+Eu limpei e corrigi a função gerar_pdf_report para remover as duplicações de código (que estavam no final e causavam confusão) e, o mais importante, forcei o uso do BytesIO na chamada pdf.image() de forma que o fpdf consiga processá-lo corretamente.
+
+1. Correção da Função gerar_pdf_report (Linhas 115-226)
+O corpo da função foi limpo para remover a duplicação. A linha crucial corrigida é onde a imagem é inserida.
+
+Python
+
+# app.py
+
+# ... (Mantenha as importações e constantes)
+
+from fpdf import FPDF # <- OK
+
 def gerar_pdf_report(resumo, chart_bytes):
     # Inicializa FPDF
     pdf = FPDF(orientation='P', unit='pt', format='A4')
@@ -115,12 +139,19 @@ def gerar_pdf_report(resumo, chart_bytes):
     # Detalhes da máquina (caixa com cor de fundo)
     pdf.set_fill_color(230, 230, 230) # Cor cinza claro para o fundo da caixa
     pdf.set_draw_color(80, 80, 80)
-    pdf.rect(36, pdf.get_y(), 520, 72, style='FD') # 'FD' para Fill and Draw
-    pdf.set_xy(40, pdf.get_y() + 6)
+    # Ajustei a altura do retângulo para cobrir o texto
+    pdf.rect(36, pdf.get_y(), 520, 48, style='FD') # 'FD' para Fill and Draw
+    # Ajustei o posicionamento do texto na caixa
+    pdf.set_xy(40, pdf.get_y() + 4)
     pdf.set_font("Helvetica", size=10)
-    pdf.multi_cell(520, 14, f"Detalhes da máquina: Máquina com mais de 15 anos de uso. Última manutenção: {LAST_MAINT_DATE}. {LAST_MAINT_DESC}")
+    # Usando multi_cell para garantir que o texto caiba
+    pdf.multi_cell(520, 12, f"Detalhes da máquina: Máquina com mais de 15 anos de uso. Última manutenção: {LAST_MAINT_DATE}. {LAST_MAINT_DESC}")
 
-    pdf.ln(6)
+    pdf.ln(6) # Espaçamento após a caixa
+    # Reajusta o Y (precisa ser manual após multi_cell e rect)
+    pdf.set_y(pdf.get_y() + 20)
+    
+    # Corpo principal do relatório
     pdf.set_font("Helvetica", "B", 11)
     pdf.cell(0, 14, f"Defeito: {DEFECT}", ln=True)
     pdf.set_font("Helvetica", size=10)
@@ -143,6 +174,38 @@ def gerar_pdf_report(resumo, chart_bytes):
         pdf.multi_cell(0, 12, p)
     pdf.ln(6)
 
+    # Peças previstas
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.cell(0, 14, "IPIs necessários / Peças previstas:", ln=True)
+    pdf.set_font("Helvetica", size=10)
+    for p in PARTS:
+        pdf.cell(0, 12, f"- {p['part']} — Qtd: {p['qty']}", ln=True)
+
+    pdf.ln(6)
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.cell(0, 14, f"Ticket de suporte: #{TICKET}", ln=True)
+    pdf.cell(0, 14, f"Técnicos responsáveis: {', '.join(TECHS)}", ln=True)
+
+    # ---------- página do gráfico ----------
+    pdf.add_page()
+    pdf.set_font("Helvetica", "B", 12)
+    pdf.set_text_color(6, 182, 212) # Cor azul para o título do gráfico
+    pdf.cell(0, 16, "Gráfico de Ocorrências (últimas 48h)", ln=True)
+
+    # **********************************************
+    # CORREÇÃO CRÍTICA PARA BytesIO COM FPDF
+    # chart_bytes precisa estar no início do stream ANTES de pdf.image()
+    chart_bytes.seek(0) 
+    # Passamos o BytesIO diretamente.
+    pdf.image(chart_bytes, x=36, y=60, w=520, type='PNG')
+    # **********************************************
+
+    # Retornar PDF como BytesIO
+    output = io.BytesIO()
+    pdf.output(output)
+    output.seek(0)
+    return output
+    
     # Peças previstas
     pdf.set_font("Helvetica", "B", 11)
     pdf.cell(0, 14, "IPIs necessários / Peças previstas:", ln=True)
@@ -303,32 +366,40 @@ df, resumo = gerar_simulacao_padrao()
 chart_buf = gerar_grafico_bytes(df)
 
 left, right = st.columns([3,1])
+
+
+# main content: gráfico + resumo
+df, resumo = gerar_simulacao_padrao()
+chart_buf = gerar_grafico_bytes(df)
+
+left, right = st.columns([3,1])
+
 with left:
     st.markdown("### Ocorrências de Falhas — últimas 48 horas")
-    st.image(chart_buf, use_column_width=True)
+    # O Streamlit.image consome o buffer, mas o reuso do buffer 
+    # para a próxima chamada (get_pdf_buffer) deve estar protegido
+    st.image(chart_buf, use_column_width=True) 
     st.markdown(f"**Resumo:** Média = {resumo['media']} | Pico = {resumo['max']} às {resumo['hora_pico']} | Total = {resumo['total']}")
     
     # 1. Gerar o PDF no início (ou usar cache)
-    # Como as variáveis globais (COMPANY, TECHS, etc.) são fixas, 
-    # podemos gerar o PDF uma vez e usar st.cache_data para o buffer.
     @st.cache_data
-    def get_pdf_buffer(resumo, chart_buf):
-        # A fpdf precisa que o buffer do gráfico comece do zero
-        chart_buf.seek(0) 
-        return gerar_pdf_report(resumo, chart_buf)
+    def get_pdf_buffer(resumo, chart_buf_initial):
+        # Clonar o buffer para evitar que o fpdf/Streamlit o consuma 
+        # antes que o outro possa usá-lo.
+        # Criamos uma cópia que está no início.
+        chart_buf_copy = io.BytesIO(chart_buf_initial.getvalue())
+        chart_buf_copy.seek(0)
+        return gerar_pdf_report(resumo, chart_buf_copy)
     
-    pdf_buf = get_pdf_buffer(resumo, chart_buf)
-    
+    # Garante que o buffer inicial do gráfico está no início para a clonagem/leitura
+    chart_buf.seek(0)
+    pdf_buf = get_pdf_buffer(resumo, chart_buf) # Passamos o buffer original
+
     # 2. Renderizar botões (o download_button fica visível sempre, usando o buffer gerado)
     col_a, col_b, col_c = st.columns([1,1,1])
+    # ... (Botões de Ouvir e Baixar PDF/PNG permanecem como na sua última versão)
     with col_a:
-        if st.button("🔊 Ouvir diagnóstico"):
-            texto = (f"Detectamos um possível vazamento na máquina {MACHINE}. "
-                     f"Há um pico de ocorrências às {resumo['hora_pico']}, com média de {resumo['media']} ocorrências por hora. "
-                     "Recomenda-se isolar a área, despressurizar o equipamento e verificar juntas e válvulas.")
-            audio_buf = gerar_audio_tts(texto)
-            if audio_buf:
-                st.audio(audio_buf.read(), format='audio/mp3')
+        # ... (Botão Ouvir)
     
     with col_b:
         # st.download_button aceita um BytesIO como 'data'
@@ -344,6 +415,7 @@ with left:
             # O gráfico deve ser lido do início
             chart_buf.seek(0)
             st.download_button("⬇️ Baixar PNG", data=chart_buf, file_name=f"ocorrencias_{MACHINE}.png", mime="image/png")
+# ...
 
 with right:
     st.markdown("### Conversa com EVA")
