@@ -9,6 +9,7 @@ import os
 import openai
 from gtts import gTTS
 from fpdf import FPDF
+from fpdf import FPDF
 import base64
 
 # ---------- CONFIGURAÇÃO ----------
@@ -88,28 +89,33 @@ def gerar_audio_tts(texto):
 from fpdf import FPDF
 
 def gerar_pdf_report(resumo, chart_bytes):
+    # Inicializa FPDF
     pdf = FPDF(orientation='P', unit='pt', format='A4')
     pdf.set_auto_page_break(auto=True, margin=40)
     pdf.add_page()
+    
+    # Define a cor de fundo (para contraste com texto em preto)
+    pdf.set_fill_color(255, 255, 255) 
 
     # HEADER
     pdf.set_font("Helvetica", "B", 16)
-    pdf.set_text_color(6, 182, 212)
+    pdf.set_text_color(6, 182, 212) # Cor azul para o título
     pdf.cell(0, 18, "Relatório Técnico - Monitoramento de Vazamentos", ln=True)
     pdf.ln(4)
 
+    # Detalhes do Relatório
     pdf.set_font("Helvetica", size=10)
+    pdf.set_text_color(0, 0, 0) # Cor preta para o texto do corpo
     now = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-    pdf.set_text_color(230, 230, 230)
     pdf.cell(0, 14, f"Empresa: {COMPANY}", ln=True)
     pdf.cell(0, 14, f"Data/Hora: {now}", ln=True)
     pdf.cell(0, 14, f"Máquina: {MACHINE}", ln=True)
     pdf.ln(6)
 
-    # Detalhes da máquina (caixa)
-    pdf.set_fill_color(18, 24, 29)
+    # Detalhes da máquina (caixa com cor de fundo)
+    pdf.set_fill_color(230, 230, 230) # Cor cinza claro para o fundo da caixa
     pdf.set_draw_color(80, 80, 80)
-    pdf.rect(36, pdf.get_y(), 520, 72, style='F')
+    pdf.rect(36, pdf.get_y(), 520, 72, style='FD') # 'FD' para Fill and Draw
     pdf.set_xy(40, pdf.get_y() + 6)
     pdf.set_font("Helvetica", size=10)
     pdf.multi_cell(520, 14, f"Detalhes da máquina: Máquina com mais de 15 anos de uso. Última manutenção: {LAST_MAINT_DATE}. {LAST_MAINT_DESC}")
@@ -136,6 +142,35 @@ def gerar_pdf_report(resumo, chart_bytes):
     for p in passos:
         pdf.multi_cell(0, 12, p)
     pdf.ln(6)
+
+    # Peças previstas
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.cell(0, 14, "IPIs necessários / Peças previstas:", ln=True)
+    pdf.set_font("Helvetica", size=10)
+    for p in PARTS:
+        pdf.cell(0, 12, f"- {p['part']} — Qtd: {p['qty']}", ln=True)
+
+    pdf.ln(6)
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.cell(0, 14, f"Ticket de suporte: #{TICKET}", ln=True)
+    pdf.cell(0, 14, f"Técnicos responsáveis: {', '.join(TECHS)}", ln=True)
+
+    # ---------- página do gráfico ----------
+    pdf.add_page()
+    pdf.set_font("Helvetica", "B", 12)
+    pdf.set_text_color(6, 182, 212) # Cor azul para o título do gráfico
+    pdf.cell(0, 16, "Gráfico de Ocorrências (últimas 48h)", ln=True)
+
+    # Inserir gráfico direto do BytesIO (o fpdf aceita)
+    # chart_bytes precisa estar no início do stream
+    chart_bytes.seek(0) 
+    pdf.image(chart_bytes, x=36, y=60, w=520, type='PNG')
+
+    # Retornar PDF como BytesIO
+    output = io.BytesIO()
+    pdf.output(output)
+    output.seek(0)
+    return output
 
     # Peças previstas
     pdf.set_font("Helvetica", "B", 11)
@@ -272,7 +307,19 @@ with left:
     st.markdown("### Ocorrências de Falhas — últimas 48 horas")
     st.image(chart_buf, use_column_width=True)
     st.markdown(f"**Resumo:** Média = {resumo['media']} | Pico = {resumo['max']} às {resumo['hora_pico']} | Total = {resumo['total']}")
-    # audio / pdf buttons
+    
+    # 1. Gerar o PDF no início (ou usar cache)
+    # Como as variáveis globais (COMPANY, TECHS, etc.) são fixas, 
+    # podemos gerar o PDF uma vez e usar st.cache_data para o buffer.
+    @st.cache_data
+    def get_pdf_buffer(resumo, chart_buf):
+        # A fpdf precisa que o buffer do gráfico comece do zero
+        chart_buf.seek(0) 
+        return gerar_pdf_report(resumo, chart_buf)
+    
+    pdf_buf = get_pdf_buffer(resumo, chart_buf)
+    
+    # 2. Renderizar botões (o download_button fica visível sempre, usando o buffer gerado)
     col_a, col_b, col_c = st.columns([1,1,1])
     with col_a:
         if st.button("🔊 Ouvir diagnóstico"):
@@ -282,14 +329,19 @@ with left:
             audio_buf = gerar_audio_tts(texto)
             if audio_buf:
                 st.audio(audio_buf.read(), format='audio/mp3')
+    
     with col_b:
-        # gerar PDF e oferecer download
-        if st.button("Gerar relatório PDF"):
-            pdf_buf = gerar_pdf_report(resumo, chart_buf)
-            st.download_button("⬇️ Baixar Relatório (PDF)", data=pdf_buf, file_name=f"Relatorio_{MACHINE}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf", mime="application/pdf")
+        # st.download_button aceita um BytesIO como 'data'
+        st.download_button(
+            "⬇️ Baixar Relatório (PDF)", 
+            data=pdf_buf, 
+            file_name=f"Relatorio_{MACHINE}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf", 
+            mime="application/pdf"
+        )
+
     with col_c:
         if st.button("Exportar gráfico (PNG)"):
-            # reed chart_buf
+            # O gráfico deve ser lido do início
             chart_buf.seek(0)
             st.download_button("⬇️ Baixar PNG", data=chart_buf, file_name=f"ocorrencias_{MACHINE}.png", mime="image/png")
 
