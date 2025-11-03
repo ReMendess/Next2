@@ -12,7 +12,8 @@ from fpdf import FPDF
 import base64
 
 # ---------- CONFIGURAÇÃO ----------
-st.set_page_config(page_title="EVA — Assistente de Suporte (Vazamentos)", layout="wide", initial_sidebar_state="collapsed")
+# 1. Ajuste de layout e FORÇAR TEMA ESCURO (dark)
+st.set_page_config(page_title="EVA — Assistente de Suporte (Vazamentos)", layout="wide", initial_sidebar_state="collapsed", theme="dark")
 
 # OpenAI key: prefer env var, fallback para secrets
 OPENAI_KEY = os.getenv("OPENAI_API_KEY") or st.secrets.get("OPENAI_API_KEY") if "OPENAI_API_KEY" in st.secrets else None
@@ -60,11 +61,19 @@ def gerar_simulacao_padrao():
     return df, resumo
 
 def gerar_grafico_bytes(df):
-    fig, ax = plt.subplots(figsize=(9, 3))
-    ax.plot(df["timestamp"], df["ocorrencias"], linewidth=2)
-    ax.set_xlabel("")
-    ax.set_ylabel("Ocorrências")
-    ax.grid(True, linestyle="--", alpha=0.4)
+    # Ajuste para tema escuro: cores claras para elementos do gráfico
+    fig, ax = plt.subplots(figsize=(9, 3), facecolor="#071017") # fundo do Streamlit
+    ax.plot(df["timestamp"], df["ocorrencias"], linewidth=2, color="#06b6d4") # Cor da linha
+    ax.set_xlabel("", color="white")
+    ax.set_ylabel("Ocorrências", color="white")
+    ax.tick_params(axis='x', colors='white') # Cor dos ticks X
+    ax.tick_params(axis='y', colors='white') # Cor dos ticks Y
+    ax.spines['left'].set_color('white') # Cor da borda Y
+    ax.spines['bottom'].set_color('white') # Cor da borda X
+    ax.spines['top'].set_color('#071017') # Esconde borda superior
+    ax.spines['right'].set_color('#071017') # Esconde borda direita
+    ax.set_facecolor("#071017") # Fundo da área de plotagem
+    ax.grid(True, linestyle="--", alpha=0.4, color="#555")
     plt.xticks(rotation=30)
     plt.tight_layout()
     buf = io.BytesIO()
@@ -87,16 +96,20 @@ def gerar_audio_tts(texto):
 
 def gerar_pdf_report(resumo, chart_bytes):
     # usa FPDF para montar PDF e retorna bytes
+    # Mantive as cores do PDF focadas no esquema de cores da aplicação
     pdf = FPDF(orientation='P', unit='pt', format='A4')
     pdf.set_auto_page_break(auto=True, margin=40)
     pdf.add_page()
     pdf.set_font("Helvetica", "B", 16)
-    pdf.set_text_color(6, 182, 212)
+    pdf.set_text_color(6, 182, 212) # Cor de destaque (ciano)
     pdf.cell(0, 18, "Relatório Técnico - Monitoramento de Vazamentos", ln=True)
     pdf.ln(4)
     pdf.set_font("Helvetica", size=10)
     now = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-    pdf.set_text_color(230,230,230)
+    pdf.set_text_color(230,230,230) # Cor de texto geral (claro)
+
+    # ... (o restante da função gerar_pdf_report é mantido como estava, pois as cores já foram ajustadas no código original para tons de cinza/claro no PDF, o que é um bom contraste para impressão) ...
+    
     pdf.cell(0, 14, f"Empresa: {COMPANY}", ln=True)
     pdf.cell(0, 14, f"Data/Hora: {now}", ln=True)
     pdf.cell(0, 14, f"Máquina: {MACHINE}", ln=True)
@@ -149,6 +162,8 @@ def gerar_pdf_report(resumo, chart_bytes):
     pdf.set_text_color(6,182,212)
     pdf.cell(0, 16, "Gráfico de Ocorrências (últimas 48h)", ln=True)
     # inserir imagem do gráfico (chart_bytes)
+    # chart_bytes must be reset to the beginning
+    chart_bytes.seek(0)
     pdf.image(chart_bytes, x=36, y=60, w=520)
     # voltar bytes
     output = io.BytesIO()
@@ -184,9 +199,49 @@ Responda em português claro, dividido por passos quando apropriado.
 st.markdown(
     """
     <style>
-    .reportview-container {background: linear-gradient(180deg,#040609 0%, #071017 100%);}
-    .stButton>button {background: #06b6d4;color:#021018;border-radius:8px;padding:8px 12px}
-    .stDownloadButton>button {background:#10b981;color:#021018;border-radius:8px;padding:8px 12px}
+    /* 2. CSS para tema escuro */
+    .stApp {
+        background: linear-gradient(180deg, #071017 0%, #040609 100%); /* Fundo escuro */
+        color: white; /* Cor do texto padrão */
+    }
+    /* Estilo para botões */
+    .stButton>button {
+        background: #06b6d4;
+        color: #021018;
+        border-radius: 8px;
+        padding: 8px 12px;
+        border: none;
+    }
+    .stDownloadButton>button {
+        background: #10b981;
+        color: #021018;
+        border-radius: 8px;
+        padding: 8px 12px;
+        border: none;
+    }
+    /* Estilo para a caixa de chat */
+    .chat-container {
+        height: 400px; /* Altura fixa para histórico */
+        overflow-y: auto; /* Scroll se o conteúdo for muito grande */
+        background-color: #1a1a2e; /* Fundo do chat */
+        padding: 10px;
+        border-radius: 8px;
+        margin-bottom: 10px;
+    }
+    .chat-user {
+        background-color: #3f3f6e; /* Cor da fala do usuário */
+        padding: 5px 10px;
+        border-radius: 10px;
+        margin-bottom: 5px;
+        text-align: right;
+    }
+    .chat-eva {
+        background-color: #06b6d420; /* Cor da fala do EVA */
+        padding: 5px 10px;
+        border-radius: 10px;
+        margin-bottom: 5px;
+        text-align: left;
+    }
     </style>
     """, unsafe_allow_html=True
 )
@@ -200,52 +255,74 @@ with col2:
     st.markdown(f"**Máquina:** {MACHINE}")
     st.markdown(f"**Ticket:** {TICKET}")
 
-# main content: gráfico + resumo
+# main content: gráfico + resumo + chat
 df, resumo = gerar_simulacao_padrao()
 chart_buf = gerar_grafico_bytes(df)
 
-left, right = st.columns([3,1])
+# 3. Alteração da proporção: [1, 2] -> Gráfico menor, Chat maior
+left, right = st.columns([1, 2])
 with left:
     st.markdown("### 📊 Ocorrências de Vazamento — últimas 48 horas")
     st.image(chart_buf, use_column_width=True)
-    st.markdown(f"**Resumo:** Média = {resumo['media']} | Pico = {resumo['max']} às {resumo['hora_pico']} | Total = {resumo['total']}")
+    st.markdown(f"**Resumo:** Média = {resumo['media']:.2f} | Pico = {resumo['max']} às {resumo['hora_pico']} | Total = {resumo['total']}")
+    
     # audio / pdf buttons
+    st.markdown("---")
     col_a, col_b, col_c = st.columns([1,1,1])
+    # Para corrigir o download button
+    pdf_buf = gerar_pdf_report(resumo, chart_buf)
+    chart_buf.seek(0)
+
     with col_a:
         if st.button("🔊 Ouvir diagnóstico"):
             texto = (f"Detectamos um possível vazamento na máquina {MACHINE}. "
-                     f"Há um pico de ocorrências às {resumo['hora_pico']}, com média de {resumo['media']} ocorrências por hora. "
+                     f"Há um pico de ocorrências às {resumo['hora_pico']}, com média de {resumo['media']:.2f} ocorrências por hora. "
                      "Recomenda-se isolar a área, despressurizar o equipamento e verificar juntas e válvulas.")
             audio_buf = gerar_audio_tts(texto)
             if audio_buf:
                 st.audio(audio_buf.read(), format='audio/mp3')
+
     with col_b:
-        # gerar PDF e oferecer download
-        if st.button("🧾 Gerar relatório PDF"):
-            pdf_buf = gerar_pdf_report(resumo, chart_buf)
-            st.download_button("⬇️ Baixar Relatório (PDF)", data=pdf_buf, file_name=f"Relatorio_{MACHINE}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf", mime="application/pdf")
+        # gerar PDF e oferecer download (movemos a geração para evitar recálculo)
+        st.download_button("⬇️ Baixar Relatório (PDF)", data=pdf_buf, file_name=f"Relatorio_{MACHINE}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf", mime="application/pdf")
+    
     with col_c:
-        if st.button("📷 Exportar gráfico (PNG)"):
-            # reed chart_buf
-            chart_buf.seek(0)
-            st.download_button("⬇️ Baixar PNG", data=chart_buf, file_name=f"ocorrencias_{MACHINE}.png", mime="image/png")
+        # reed chart_buf
+        st.download_button("⬇️ Baixar PNG", data=chart_buf, file_name=f"ocorrencias_{MACHINE}.png", mime="image/png")
+
 
 with right:
     st.markdown("### 💬 Conversa com EVA")
     if "chat_history" not in st.session_state:
         st.session_state.chat_history = []
-    # show chat
-    for entry in st.session_state.chat_history:
-        if entry["role"] == "user":
-            st.markdown(f"**Você:** {entry['text']}")
-        else:
-            st.markdown(f"**EVA:** {entry['text']}")
-    user_input = st.text_input("Digite sua pergunta para EVA", key="user_prompt")
-    send = st.button("Enviar para EVA")
-    clear = st.button("Limpar conversa")
+    
+    # 4. Histórico de chat em container com scroll
+    chat_placeholder = st.container()
+    with chat_placeholder:
+        st.markdown('<div class="chat-container">', unsafe_allow_html=True)
+        # show chat
+        for entry in st.session_state.chat_history:
+            if entry["role"] == "user":
+                st.markdown(f"<div class='chat-user'>**Você:** {entry['text']}</div>", unsafe_allow_html=True)
+            else:
+                st.markdown(f"<div class='chat-eva'>**EVA:** {entry['text']}</div>", unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # Input e botões de ação
+    col_input, col_send, col_clear = st.columns([4, 1, 1])
+    with col_input:
+        user_input = st.text_input("Digite sua pergunta para EVA", key="user_prompt", label_visibility="collapsed", placeholder="O que devo fazer agora?")
+
+    with col_send:
+        send = st.button("Enviar", key="send_button", use_container_width=True)
+
+    with col_clear:
+        clear = st.button("Limpar", key="clear_button", use_container_width=True)
+
     if clear:
         st.session_state.chat_history = []
-        st.experimental_rerun()
+        st.rerun() # Use st.rerun() no Streamlit mais recente
+        
     if send and user_input:
         # append user
         st.session_state.chat_history.append({"role":"user","text":user_input})
@@ -253,10 +330,12 @@ with right:
         with st.spinner("EVA está analisando..."):
             resposta = call_openai_agent(user_input, resumo)
         st.session_state.chat_history.append({"role":"assistant","text":resposta})
-        # auto-play TTS: generate and show audio player
-        audio_buf = gerar_audio_tts(resposta)
+        
+        # auto-play TTS: generate and show audio player (removido para evitar poluição visual, pode ser adicionado de volta se o usuário pedir)
+        # áudio pode ser gerado/tocado no próprio histórico
+        
         # refresh
-        st.experimental_rerun()
+        st.rerun() # Use st.rerun() no Streamlit mais recente
 
 # footer info: machine details / technicians / parts (boxes)
 st.markdown("---")
