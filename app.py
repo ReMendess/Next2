@@ -85,24 +85,30 @@ def gerar_audio_tts(texto):
         st.error(f"Erro TTS: {e}")
         return None
 
+from fpdf import FPDF
+
 def gerar_pdf_report(resumo, chart_bytes):
     pdf = FPDF(orientation='P', unit='pt', format='A4')
     pdf.set_auto_page_break(auto=True, margin=40)
     pdf.add_page()
+
+    # HEADER
     pdf.set_font("Helvetica", "B", 16)
     pdf.set_text_color(6, 182, 212)
     pdf.cell(0, 18, "Relatório Técnico - Monitoramento de Vazamentos", ln=True)
     pdf.ln(4)
+
     pdf.set_font("Helvetica", size=10)
     now = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-    pdf.set_text_color(230,230,230)
+    pdf.set_text_color(230, 230, 230)
     pdf.cell(0, 14, f"Empresa: {COMPANY}", ln=True)
     pdf.cell(0, 14, f"Data/Hora: {now}", ln=True)
     pdf.cell(0, 14, f"Máquina: {MACHINE}", ln=True)
     pdf.ln(6)
 
-    pdf.set_fill_color(18,24,29)
-    pdf.set_draw_color(80,80,80)
+    # Detalhes da máquina (caixa)
+    pdf.set_fill_color(18, 24, 29)
+    pdf.set_draw_color(80, 80, 80)
     pdf.rect(36, pdf.get_y(), 520, 72, style='F')
     pdf.set_xy(40, pdf.get_y() + 6)
     pdf.set_font("Helvetica", size=10)
@@ -115,6 +121,7 @@ def gerar_pdf_report(resumo, chart_bytes):
     pdf.cell(0, 12, f"Autorizado para manutenção: {AUTHORIZED}", ln=True)
     pdf.ln(6)
 
+    # Passos para verificação e reparo
     pdf.set_font("Helvetica", "B", 11)
     pdf.cell(0, 14, "Passos para verificação e reparo:", ln=True)
     pdf.set_font("Helvetica", size=10)
@@ -130,6 +137,7 @@ def gerar_pdf_report(resumo, chart_bytes):
         pdf.multi_cell(0, 12, p)
     pdf.ln(6)
 
+    # Peças previstas
     pdf.set_font("Helvetica", "B", 11)
     pdf.cell(0, 14, "IPIs necessários / Peças previstas:", ln=True)
     pdf.set_font("Helvetica", size=10)
@@ -144,25 +152,18 @@ def gerar_pdf_report(resumo, chart_bytes):
     # ---------- página do gráfico ----------
     pdf.add_page()
     pdf.set_font("Helvetica", "B", 12)
-    pdf.set_text_color(6,182,212)
+    pdf.set_text_color(6, 182, 212)
     pdf.cell(0, 16, "Gráfico de Ocorrências (últimas 48h)", ln=True)
 
-    # salvar o gráfico temporariamente
-    temp_chart_path = "temp_chart.png"
-    with open(temp_chart_path, "wb") as f:
-        f.write(chart_bytes.getvalue())
+    # Inserir gráfico direto do BytesIO
+    pdf.image(chart_bytes, x=36, y=60, w=520, type='PNG')
 
-    # inserir imagem
-    pdf.image(temp_chart_path, x=36, y=60, w=520)
-
-    # remover o arquivo temporário
-    os.remove(temp_chart_path)
-
-    # retornar bytes do PDF
+    # Retornar PDF como BytesIO
     output = io.BytesIO()
     pdf.output(output)
     output.seek(0)
     return output
+
 
     # detalhes da máquina (caixa)
     pdf.set_fill_color(18,24,29)
