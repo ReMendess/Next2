@@ -60,7 +60,7 @@ def gerar_simulacao_padrao():
     return df, resumo
 
 def gerar_grafico_bytes(df):
-    fig, ax = plt.subplots(figsize=(9, 3))
+    fig, ax = plt.subplots(figsize=(5, 2))
     ax.plot(df["timestamp"], df["ocorrencias"], linewidth=2)
     ax.set_xlabel("")
     ax.set_ylabel("Ocorrências")
