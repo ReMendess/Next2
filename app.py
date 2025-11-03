@@ -60,7 +60,7 @@ def gerar_simulacao_padrao():
     return df, resumo
 
 def gerar_grafico_bytes(df):
-    fig, ax = plt.subplots(figsize=(5, 2))
+    fig, ax = plt.subplots(figsize=(9, 3))
     ax.plot(df["timestamp"], df["ocorrencias"], linewidth=2)
     ax.set_xlabel("")
     ax.set_ylabel("Ocorrências")
@@ -206,7 +206,7 @@ chart_buf = gerar_grafico_bytes(df)
 
 left, right = st.columns([3,1])
 with left:
-    st.markdown("### 📊 Ocorrências de Vazamento — últimas 48 horas")
+    st.markdown("### Ocorrências de Falhas — últimas 48 horas")
     st.image(chart_buf, use_column_width=True)
     st.markdown(f"**Resumo:** Média = {resumo['media']} | Pico = {resumo['max']} às {resumo['hora_pico']} | Total = {resumo['total']}")
     # audio / pdf buttons
@@ -221,17 +221,17 @@ with left:
                 st.audio(audio_buf.read(), format='audio/mp3')
     with col_b:
         # gerar PDF e oferecer download
-        if st.button("🧾 Gerar relatório PDF"):
+        if st.button("Gerar relatório PDF"):
             pdf_buf = gerar_pdf_report(resumo, chart_buf)
             st.download_button("⬇️ Baixar Relatório (PDF)", data=pdf_buf, file_name=f"Relatorio_{MACHINE}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf", mime="application/pdf")
     with col_c:
-        if st.button("📷 Exportar gráfico (PNG)"):
+        if st.button("Exportar gráfico (PNG)"):
             # reed chart_buf
             chart_buf.seek(0)
             st.download_button("⬇️ Baixar PNG", data=chart_buf, file_name=f"ocorrencias_{MACHINE}.png", mime="image/png")
 
 with right:
-    st.markdown("### 💬 Conversa com EVA")
+    st.markdown("### Conversa com EVA")
     if "chat_history" not in st.session_state:
         st.session_state.chat_history = []
     # show chat
