@@ -275,4 +275,17 @@ with c3:
     for p in PARTS:
         st.write(f"- {p['part']} — Qtd: {p['qty']}")
 
+# Caixa de ação rápida
+st.subheader("⚙️ Ações Rápidas")
+col1, col2 = st.columns(2)
+with col1:
+if st.button("🚨 Isolar área"):
+st.success("Área isolada com sucesso!")
+with col2:
+if st.button("🔧 Acionar manutenção"):
+st.warning("Equipe de manutenção acionada!")
+
+
+st.markdown("---")
+
 st.markdown("**Nota:** Esta é uma demonstração com dados simulados. O agente IA usa o contexto mostrado para orientar a investigação técnica.")
