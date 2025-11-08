@@ -2,7 +2,7 @@ import streamlit as st
 from openai import OpenAI
 
 # --- CONFIGURAÇÕES ---
-client = OpenAI(api_key="SEU_OPENAI_API_KEY")
+client = OpenAI(api_key="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")
 MODEL = "gpt-4o-mini"  # ou outro modelo disponível
 
 # --- UI ---
