@@ -71,5 +71,5 @@ if st.button("Enviar") and user_msg.strip():
 
     st.session_state.chat_history.append(("user", user_msg))
     st.session_state.chat_history.append(("assistant", bot_reply))
-    st.experimental_rerun()
+    st.rerun()
 
