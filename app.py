@@ -2,7 +2,7 @@ import streamlit as st
 import openai
 
 # --- CONFIGURAÇÕES ---
-OPENAI_API_KEY = "SEU_OPENAI_API_KEY"
+OPENAI_API_KEY = "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"
 openai.api_key = OPENAI_API_KEY
 MODEL = "gpt-4o-mini"  # ou o modelo que desejar
 
